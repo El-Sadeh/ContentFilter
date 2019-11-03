@@ -45,6 +45,7 @@ objs\<arch>\ShapeType_subscriber <domain_id>
 
 #include <algorithm>
 #include <iostream>
+#include <string>
 
 #include <dds/sub/ddssub.hpp>
 #include <dds/core/ddscore.hpp>
@@ -91,14 +92,45 @@ void subscriber_main(int domain_id, int sample_count)
     // Create a Topic -- and automatically register the type
     dds::topic::Topic<ShapeTypeExtended> topic(participant, "Square");
 
+
+	//******** The parameter of half the screen ********
+	std::vector<std::string> yAxisFilteringThreshold(2);
+	yAxisFilteringThreshold[0] = "0";  // 0 is the top of the screen's y axis  
+	yAxisFilteringThreshold[1] = "250"; //250 is the bottom of the screen's y axis
+	
+
     // Create a DataReader with default Qos (Subscriber created in-line)
     ShapeTypeExtendedReaderListener listener;
-    dds::sub::DataReader<ShapeTypeExtended> reader(
-        dds::sub::Subscriber(participant),
-        topic,
-        dds::core::QosProvider::Default().datareader_qos(),
-        &listener,
-        dds::core::status::StatusMask::data_available());
+
+	//Create a filter called "yFilter"
+	dds::topic::Filter yFilter("y > %0 AND y < %1", yAxisFilteringThreshold);
+
+	//Create a dedicated topic for the content filter ("cft_topic") based on the original 
+	//		topic sent by the publisher ("topic") with the filter "yfilter".
+	// NOTE: The filter part can be done inline, like the following commented lines:
+	/*
+		cft_topic = dds::topic::ContentFilteredTopic<ShapeTypeExtended>(
+		topic,
+		"ContentFilteredTopic",
+		THE INLINE FILTER --> dds::topic::Filter("y > %0 AND y < %1", yAxisFilteringThreshold));  <--THE INLINE FILTER
+		*/
+	dds::topic::ContentFilteredTopic<ShapeTypeExtended> cft_topic = dds::core::null;	
+	cft_topic = dds::topic::ContentFilteredTopic<ShapeTypeExtended>(
+		topic,
+		"ContentFilteredTopic",
+		yFilter);
+
+	//Now create a data reader for the original topic, so that the content filter's 
+	// dedicated topic ("cft_topic") would connect to
+	dds::sub::DataReader<ShapeTypeExtended> reader(
+		dds::sub::Subscriber(participant),
+		cft_topic,
+		dds::core::QosProvider::Default().datareader_qos(),
+		&listener,
+		dds::core::status::StatusMask::data_available());
+
+
+
 
 
 	short tenSecondCounter = 0;
@@ -106,16 +138,29 @@ void subscriber_main(int domain_id, int sample_count)
 	{
 		if (tenSecondCounter == 0)
 		{
-			rti::util::sleep(dds::core::Duration(4));
-			std::cout << "changing filter 1" << std::endl; 
+			rti::util::sleep(dds::core::Duration(10));
+			std::cout << "*******************************************" << std::endl;
+			std::cout << "*  Changing filter: Showing TOP half only *" << std::endl; 
+			std::cout << "*******************************************" << std::endl;
 			tenSecondCounter++; 
-			//change filter
 
 
-		
-			rti::util::sleep(dds::core::Duration(4));
-			std::cout << "changing filter 2" << std::endl;
+			//change filter to show the upper part
+			yAxisFilteringThreshold[0] = "0";
+			yAxisFilteringThreshold[1] = "125";
+			cft_topic.filter_parameters(yAxisFilteringThreshold.begin(), yAxisFilteringThreshold.end());
+
+
+			//After another 10 seconds change to show the lower part		
+			rti::util::sleep(dds::core::Duration(10));
+			std::cout << "**********************************************" << std::endl;
+			std::cout << "*  Changing filter: Showing BOTTOM half only *" << std::endl;
+			std::cout << "**********************************************" << std::endl;
 			tenSecondCounter++;
+			
+			yAxisFilteringThreshold[0] = "125";
+			yAxisFilteringThreshold[1] = "250";
+			cft_topic.filter_parameters(yAxisFilteringThreshold.begin(), yAxisFilteringThreshold.end());
 		}
 
         
