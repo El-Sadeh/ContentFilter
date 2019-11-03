@@ -100,10 +100,25 @@ void subscriber_main(int domain_id, int sample_count)
         &listener,
         dds::core::status::StatusMask::data_available());
 
-    while (listener.count() < sample_count || sample_count == 0) {
-        std::cout << "ShapeTypeExtended subscriber sleeping for 4 sec..." << std::endl;
 
-        rti::util::sleep(dds::core::Duration(4));
+	short tenSecondCounter = 0;
+    while (listener.count() < sample_count || sample_count == 0) 
+	{
+		if (tenSecondCounter == 0)
+		{
+			rti::util::sleep(dds::core::Duration(4));
+			std::cout << "changing filter 1" << std::endl; 
+			tenSecondCounter++; 
+			//change filter
+
+
+		
+			rti::util::sleep(dds::core::Duration(4));
+			std::cout << "changing filter 2" << std::endl;
+			tenSecondCounter++;
+		}
+
+        
     }
 
     // Unset the listener to allow the reader destruction
